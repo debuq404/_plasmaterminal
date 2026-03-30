@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>plasmadesk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000b00;
+            --fg: #00ff00;
+            --fg-dim: rgba(0, 255, 0, 0.75);
+            --panel: rgba(0, 18, 0, 0.86);
+            --panel2: rgba(0, 12, 0, 0.92);
+            --line: rgba(0, 255, 0, 0.7);
+            --shadow: rgba(0, 255, 0, 0.45);
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: 'VT323', monospace;
+            font-size: 22px;
+        }
+        body::before {
+            content: " ";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+            background: linear-gradient(rgba(18, 16, 16, 0) 40%, rgba(0, 0, 0, 0.26) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.02));
+            background-size: 100% 4px, 6px 100%;
+        }
+        body::after {
+            content: " ";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 101;
+            background:
+                radial-gradient(ellipse at center, rgba(0,255,0,0.05) 0%, rgba(0,255,0,0) 46%),
+                radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.62) 100%);
+        }
+        .wallpaper {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background:
+                radial-gradient(1200px 700px at 30% 30%, rgba(0,255,0,0.06), rgba(0,0,0,0) 60%),
+                radial-gradient(900px 600px at 70% 70%, rgba(0,255,0,0.04), rgba(0,0,0,0) 55%),
+                linear-gradient(180deg, rgba(0,255,0,0.02), rgba(0,0,0,0) 40%),
+                repeating-linear-gradient(90deg, rgba(0,255,0,0.035), rgba(0,255,0,0.035) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 64px);
+            mix-blend-mode: screen;
+            opacity: 0.75;
+        }
+        .desktop {
+            position: fixed;
+            inset: 0 0 42px 0;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 2;
+            overflow: hidden;
+        }
+        .icon {
+            width: 110px;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            text-shadow: 0 0 12px var(--fg);
+            transition: transform 80ms linear;
+            position: absolute;
+        }
+        .icon:active { transform: none; }
+        .icon:hover .icon-glyph,
+        .icon:hover .icon-label {
+            outline: 1px solid rgba(0,255,0,0.75);
+            box-shadow: 0 0 16px rgba(0,255,0,0.18);
+        }
+        .icon.selected .icon-glyph,
+        .icon.selected .icon-label {
+            outline: 1px solid rgba(0,255,0,0.95);
+            background: rgba(0,255,0,0.12);
+            box-shadow: 0 0 20px rgba(0,255,0,0.3);
+        }
+        .icon-label {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-top: 2px;
+        }
+        .icon-glyph {
+            width: 70px;
+            height: 54px;
+            margin: 0 auto 8px auto;
+            border: 1px solid var(--fg);
+            box-shadow: 0 0 16px var(--shadow);
+            position: relative;
+            background: rgba(0, 255, 0, 0.06);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .icon.folder .icon-glyph::before {
+            content: " ";
+            position: absolute;
+            left: 10px;
+            top: 8px;
+            width: 28px;
+            height: 10px;
+            border: 1px solid var(--fg);
+            border-bottom: none;
+            background: rgba(0, 255, 0, 0.10);
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+        .icon.folder .icon-glyph::after {
+            content: " ";
+            position: absolute;
+            left: 7px;
+            right: 7px;
+            top: 18px;
+            bottom: 8px;
+            border: 1px solid rgba(0,255,0,0.85);
+            background: linear-gradient(180deg, rgba(0,255,0,0.14), rgba(0,255,0,0.04));
+            border-radius: 7px;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+        }
+        .icon.game .icon-glyph {
+            background: rgba(0, 255, 0, 0.06);
+        }
+        .icon.game .icon-glyph::before {
+            content: " ";
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            width: 40px;
+            height: 26px;
+            background: linear-gradient(transparent 45%, var(--fg) 45%, var(--fg) 55%, transparent 55%);
+            clip-path: polygon(0 60%, 12% 60%, 12% 28%, 28% 28%, 28% 0, 72% 0, 72% 28%, 88% 28%, 88% 60%, 100% 60%, 100% 78%, 78% 78%, 78% 100%, 22% 100%, 22% 78%, 0 78%);
+        }
+        .taskbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 42px;
+            border-top: 1px solid var(--line);
+            background: rgba(0, 20, 0, 0.92);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            z-index: 20;
+        }
+        .start-btn {
+            margin-left: 10px;
+            height: 30px;
+            min-width: 86px;
+            border: 1px solid var(--fg);
+            background: rgba(0,255,0,0.10);
+            color: var(--fg);
+            font: inherit;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            text-shadow: 0 0 10px var(--fg);
+            border-radius: 8px;
+        }
+        .start-logo {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--fg);
+            box-shadow: 0 0 8px var(--fg);
+        }
+        .start-menu {
+            position: fixed;
+            left: 10px;
+            bottom: 44px;
+            width: 210px;
+            border: 1px solid var(--line);
+            background: rgba(0, 16, 0, 0.96);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.35);
+            display: none;
+            z-index: 30;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .start-menu.open { display: block; }
+        .start-menu button {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid rgba(0,255,0,0.22);
+            color: var(--fg);
+            font: inherit;
+            padding: 10px;
+            text-align: left;
+            text-shadow: 0 0 8px var(--fg);
+        }
+        .window {
+            position: fixed;
+            top: 90px;
+            left: 120px;
+            width: min(760px, calc(100vw - 40px));
+            background: rgba(0, 12, 0, 0.90);
+            border: 1px solid rgba(0,255,0,0.75);
+            box-shadow: 0 0 26px rgba(0,255,0,0.35);
+            display: none;
+            z-index: 25;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .window.visible { display: block; }
+        .window-title {
+            border-bottom: 1px solid var(--line);
+            padding: 6px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--fg);
+            color: var(--bg);
+            text-shadow: none;
+            font-weight: bold;
+        }
+        .window-body {
+            background: rgba(0, 14, 0, 0.88);
+        }
+        .close-btn {
+            border: 1px solid var(--bg);
+            background: rgba(0, 0, 0, 0.08);
+            color: var(--bg);
+            font: inherit;
+            padding: 0 8px;
+        }
+        .window-body {
+            padding: 12px;
+            min-height: 190px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+            gap: 12px;
+        }
+        .mini-icon {
+            width: 92px;
+            text-align: center;
+            user-select: none;
+            cursor: default;
+            transition: transform 80ms linear;
+        }
+        .mini-icon:hover .mini-glyph,
+        .mini-icon:hover .mini-label {
+            outline: 1px solid rgba(0,255,0,0.75);
+            box-shadow: 0 0 16px rgba(0,255,0,0.18);
+        }
+        .mini-icon:active { transform: none; }
+        .mini-label {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 8px;
+            margin-top: 2px;
+        }
+        .mini-glyph {
+            width: 50px;
+            height: 38px;
+            margin: 0 auto 6px auto;
+            border: 1px solid var(--fg);
+            background: rgba(0,255,0,0.07);
+            box-shadow: 0 0 14px var(--shadow);
+            position: relative;
+            border-radius: 8px;
+        }
+        .mini-icon.folder .mini-glyph::before {
+            content: " ";
+            position: absolute;
+            left: 5px;
+            top: -7px;
+            width: 20px;
+            height: 7px;
+            border: 1px solid var(--fg);
+            border-bottom: none;
+            background: rgba(0, 255, 0, 0.12);
+        }
+        .mini-icon.file .mini-glyph::before {
+            content: "TXT";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+        .mini-icon.game .mini-glyph::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 4px;
+            height: 4px;
+            background: var(--fg);
+            transform: translate(-50%, -50%);
+            box-shadow:
+                -16px -8px var(--fg), -12px -8px var(--fg), -8px -8px var(--fg), -4px -8px var(--fg), 4px -8px var(--fg), 8px -8px var(--fg), 12px -8px var(--fg), 16px -8px var(--fg),
+                -16px -4px var(--fg), -8px -4px var(--fg), -4px -4px var(--fg), 0 -4px var(--fg), 4px -4px var(--fg), 8px -4px var(--fg), 16px -4px var(--fg),
+                -16px 0 var(--fg), -12px 0 var(--fg), -8px 0 var(--fg), -4px 0 var(--fg), 0 0 var(--fg), 4px 0 var(--fg), 8px 0 var(--fg), 12px 0 var(--fg), 16px 0 var(--fg),
+                -12px 4px var(--fg), -8px 4px var(--fg), 8px 4px var(--fg), 12px 4px var(--fg),
+                -8px 8px var(--fg), -4px 8px var(--fg), 4px 8px var(--fg), 8px 8px var(--fg);
+        }
+        .auth-modal {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 320px;
+            border: 1px solid rgba(0,255,0,0.75);
+            background: rgba(0, 12, 0, 0.96);
+            box-shadow: 0 0 24px rgba(0,255,0,0.35);
+            display: none;
+            z-index: 40;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .auth-modal.visible { display: block; }
+        .auth-head {
+            border-bottom: 1px solid var(--line);
+            padding: 8px 10px;
+            background: var(--fg);
+            color: var(--bg);
+            font-weight: bold;
+        }
+        .auth-body {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .auth-body input {
+            background: #001600;
+            border: 1px solid var(--line);
+            color: var(--fg);
+            font-family: 'Press Start 2P', 'VT323', monospace;
+            font-size: 12px;
+            padding: 6px;
+            outline: none;
+            letter-spacing: 2px;
+        }
+        .auth-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .auth-actions button {
+            border: 1px solid var(--line);
+            background: transparent;
+            color: var(--fg);
+            font: inherit;
+            padding: 4px 10px;
+        }
+        .status {
+            min-height: 20px;
+            color: #00ffff;
+        }
+        .poweroff {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 90;
+        }
+        .poweroff.on {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .selection-box {
+            position: absolute;
+            border: 1px dashed rgba(0,255,0,0.95);
+            background: rgba(0,255,0,0.10);
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div id="desktop" class="desktop">
+        <div class="icon folder" data-open-folder="693">
+            <div class="icon-glyph"></div>
+            <div class="icon-label">693</div>
+        </div>
+        <div class="icon folder" data-open-folder="alaways">
+            <div class="icon-glyph"></div>
+            <div class="icon-label">alaways</div>
+        </div>
+        <div id="selectionBox" class="selection-box"></div>
+    </div>
+
+    <div id="fileWindow" class="window">
+        <div class="window-title">
+            <span id="windowTitle">/home/user</span>
+            <button id="closeWindow" class="close-btn">X</button>
+        </div>
+        <div id="windowBody" class="window-body"></div>
+    </div>
+
+    <div id="authModal" class="auth-modal">
+        <div class="auth-head">encrypted file</div>
+        <div class="auth-body">
+            <div id="authTarget">enter password</div>
+            <input id="authInput" type="text" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" name="plasma_auth_key" />
+            <div id="authStatus" class="status"></div>
+            <div class="auth-actions">
+                <button id="authCancel">cancel</button>
+                <button id="authOpen">open</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="taskbar">
+        <button id="startBtn" class="start-btn"><span class="start-logo"></span>Пуск</button>
+    </div>
+    <div id="startMenu" class="start-menu">
+        <button id="rebootBtn">Перезагрузить</button>
+        <button id="shutdownBtn">Выключить</button>
+    </div>
+
+    <div id="poweroff" class="poweroff"></div>
+
+    <script>
+        const clickSound = new Audio("click.mp3");
+        const keySound = new Audio("key.mp3");
+        const accessSound = new Audio("access.mp3");
+        const errorSound = new Audio("error.mp3");
+        const turnoffSound = new Audio("turnoff.mp3");
+
+        const secretFiles = {
+            "look.txt": {
+                passHash: "1bc7dd8b3b53c2f6ebb9c279dc964cc5389778f3c3b76ceca6173ce7a3e5c320",
+                fileHash: "namedj293128"
+            },
+            "darkness.txt": {
+                passHash: "d253a2f0de08e4c8b7b4a74bc4cb298abdc959f5bba998a02f37eb211944e5ba",
+                fileHash: "do[oxjz3"
+            },
+            "pcore.txt": {
+                passHash: "fda65a4ed6550508fa499ca4e552efae00252fb36f03337a99fb94487ef69e10",
+                fileHash: "daser3123dd1"
+            },
+            "world.txt": {
+                passHash: "32db0197e1333aaa200ca26d0b0b9ad889d15c8ba96c35bf7e9edecf602bff07",
+                fileHash: "dawdpool239"
+            },
+            "pppsmm.txt": {
+                passHash: "1e0f679f5f9dd17e22d14e2c9a7225d65c375e8abfba355dc288b6e7ea2ebe34",
+                fileHash: "illish345"
+            },
+            "morris.txt": {
+                passHash: "cacb116c43e8317a9425a8640cf14ac8e83f8f74c9383a3993302575e33e6258",
+                fileHash: "f68328KDKasdjshBBBB__"
+            },
+            "abodeless.txt": {
+                passHash: "2f501595d6f227955686aa8d6bb70e0682acf6682a5cd5c83eb56f8d2e29ba58",
+                fileHash: "cryghaa2939sppp000"
+            }
+        };
+
+        const desktop = document.getElementById("desktop");
+        const fileWindow = document.getElementById("fileWindow");
+        const windowBody = document.getElementById("windowBody");
+        const windowTitle = document.getElementById("windowTitle");
+        const closeWindow = document.getElementById("closeWindow");
+        const startBtn = document.getElementById("startBtn");
+        const startMenu = document.getElementById("startMenu");
+        const rebootBtn = document.getElementById("rebootBtn");
+        const shutdownBtn = document.getElementById("shutdownBtn");
+        const poweroff = document.getElementById("poweroff");
+
+        const authModal = document.getElementById("authModal");
+        const authTarget = document.getElementById("authTarget");
+        const authInput = document.getElementById("authInput");
+        const authStatus = document.getElementById("authStatus");
+        const authCancel = document.getElementById("authCancel");
+        const authOpen = document.getElementById("authOpen");
+        const selectionBox = document.getElementById("selectionBox");
+        const desktopIcons = Array.from(desktop.querySelectorAll(".icon[data-open-folder]"));
+
+        let currentFolder = null;
+        let pendingFile = null;
+        let authRawPassword = "";
+        let authRedirectTimer = null;
+        const GRID_X = 132;
+        const GRID_Y = 124;
+        let isDraggingIcons = false;
+        let isBoxSelecting = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let boxStartX = 0;
+        let boxStartY = 0;
+        let draggedIcons = [];
+        let draggedIconOffsets = new Map();
+
+        let lastClickAt = 0;
+        function playClick() {
+            clickSound.currentTime = 0;
+            clickSound.play();
+        }
+
+        function playKey() {
+            keySound.currentTime = 0;
+            keySound.play();
+        }
+
+        document.addEventListener("mousedown", () => {
+            const now = performance.now();
+            if (now - lastClickAt < 35) return;
+            lastClickAt = now;
+            playClick();
+        }, { capture: true });
+
+        function wireOpenOnClick(el, fn) {
+            el.addEventListener("click", (e) => {
+                e.stopPropagation();
+                fn();
+            });
+        }
+
+        function wireOpenOnDoubleClick(el, fn) {
+            let last = 0;
+            el.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const now = performance.now();
+                if (now - last < 320) fn();
+                last = now;
+            });
+        }
+
+        function snapToGrid(x, y) {
+            const col = Math.max(0, Math.round((x - 20) / GRID_X));
+            const row = Math.max(0, Math.round((y - 20) / GRID_Y));
+            return { x: 20 + col * GRID_X, y: 20 + row * GRID_Y };
+        }
+
+        function setIconPosition(icon, x, y) {
+            icon.style.left = `${x}px`;
+            icon.style.top = `${y}px`;
+        }
+
+        function initDesktopIcons() {
+            desktopIcons.forEach((icon, i) => {
+                const x = 20 + Math.floor(i / 8) * GRID_X;
+                const y = 20 + (i % 8) * GRID_Y;
+                setIconPosition(icon, x, y);
+            });
+        }
+
+        function clearSelection() {
+            desktopIcons.forEach(i => i.classList.remove("selected"));
+        }
+
+        function getSelectedIcons() {
+            return desktopIcons.filter(i => i.classList.contains("selected"));
+        }
+
+        function selectIcon(icon, addMode) {
+            if (!addMode) clearSelection();
+            icon.classList.add("selected");
+        }
+
+        function startIconDrag(e, icon) {
+            const selected = getSelectedIcons();
+            if (!selected.includes(icon)) selectIcon(icon, e.ctrlKey);
+            draggedIcons = getSelectedIcons();
+            if (!draggedIcons.length) return;
+            isDraggingIcons = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            draggedIconOffsets.clear();
+            draggedIcons.forEach((item) => {
+                draggedIconOffsets.set(item, {
+                    x: parseFloat(item.style.left || "20"),
+                    y: parseFloat(item.style.top || "20")
+                });
+            });
+        }
+
+        function startBoxSelection(e) {
+            if (e.target !== desktop && e.target !== selectionBox) return;
+            isBoxSelecting = true;
+            boxStartX = e.clientX;
+            boxStartY = e.clientY;
+            if (!e.ctrlKey) clearSelection();
+            selectionBox.style.display = "block";
+            selectionBox.style.left = `${boxStartX - desktop.getBoundingClientRect().left}px`;
+            selectionBox.style.top = `${boxStartY - desktop.getBoundingClientRect().top}px`;
+            selectionBox.style.width = "0px";
+            selectionBox.style.height = "0px";
+        }
+
+        function updateBoxSelection(e) {
+            if (!isBoxSelecting) return;
+            const rect = desktop.getBoundingClientRect();
+            const x1 = Math.min(boxStartX, e.clientX) - rect.left;
+            const y1 = Math.min(boxStartY, e.clientY) - rect.top;
+            const x2 = Math.max(boxStartX, e.clientX) - rect.left;
+            const y2 = Math.max(boxStartY, e.clientY) - rect.top;
+            selectionBox.style.left = `${x1}px`;
+            selectionBox.style.top = `${y1}px`;
+            selectionBox.style.width = `${x2 - x1}px`;
+            selectionBox.style.height = `${y2 - y1}px`;
+            desktopIcons.forEach((icon) => {
+                const r = icon.getBoundingClientRect();
+                const overlap = !(r.right < rect.left + x1 || r.left > rect.left + x2 || r.bottom < rect.top + y1 || r.top > rect.top + y2);
+                if (overlap) icon.classList.add("selected");
+                else if (!e.ctrlKey) icon.classList.remove("selected");
+            });
+        }
+
+        function stopBoxSelection() {
+            if (!isBoxSelecting) return;
+            isBoxSelecting = false;
+            selectionBox.style.display = "none";
+        }
+
+        function updateIconDrag(e) {
+            if (!isDraggingIcons) return;
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            draggedIcons.forEach((icon) => {
+                const base = draggedIconOffsets.get(icon);
+                const snapped = snapToGrid(base.x + dx, base.y + dy);
+                setIconPosition(icon, snapped.x, snapped.y);
+            });
+        }
+
+        function stopIconDrag() {
+            if (!isDraggingIcons) return;
+            isDraggingIcons = false;
+            draggedIcons = [];
+            draggedIconOffsets.clear();
+        }
+
+        function closeStartMenu() {
+            startMenu.classList.remove("open");
+        }
+
+        function openFolder(name) {
+            currentFolder = name;
+            windowTitle.textContent = `/home/user/${name}`;
+            windowBody.innerHTML = "";
+
+            if (name === "693") {
+                Object.keys(secretFiles).forEach((fileName) => {
+                    windowBody.appendChild(createFileIcon(fileName, true));
+                });
+            } else if (name === "alaways") {
+                windowBody.appendChild(createGameIcon("invaders.x86_64"));
+            }
+
+            fileWindow.classList.add("visible");
+        }
+
+        function createFileIcon(fileName, encrypted) {
+            const node = document.createElement("div");
+            node.className = "mini-icon file";
+            node.innerHTML = `<div class="mini-glyph"></div><div class="mini-label">${fileName}</div>`;
+            wireOpenOnClick(node, () => {
+                if (encrypted) {
+                    pendingFile = fileName;
+                    authTarget.textContent = `password for ${fileName}`;
+                    authStatus.textContent = "";
+                    authStatus.style.color = "#00ffff";
+                    authRawPassword = "";
+                    authInput.value = "";
+                    authModal.classList.add("visible");
+                    authInput.focus();
+                }
+            });
+            return node;
+        }
+
+        function createGameIcon(fileName) {
+            const node = document.createElement("div");
+            node.className = "mini-icon game";
+            node.innerHTML = `<div class="mini-glyph"></div><div class="mini-label">${fileName}</div>`;
+            wireOpenOnClick(node, () => {
+                setTimeout(() => { window.location.href = "alaways_game.html"; }, 160);
+            });
+            return node;
+        }
+
+        const fanSound = new Audio("fan.mp3");
+        fanSound.loop = true;
+        fanSound.volume = 0.26;
+        function startFan() {
+            fanSound.play().catch(() => {});
+        }
+        window.addEventListener("pointerdown", startFan, { once: true });
+        window.addEventListener("keydown", startFan, { once: true });
+
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+        }
+
+        async function openEncryptedFile() {
+            if (!pendingFile) return;
+            if (authRedirectTimer) {
+                clearTimeout(authRedirectTimer);
+                authRedirectTimer = null;
+            }
+            const fileData = secretFiles[pendingFile];
+            const hashed = await sha256(authRawPassword.trim().toLowerCase());
+
+            if (hashed === fileData.passHash) {
+                accessSound.currentTime = 0;
+                accessSound.play();
+                authStatus.style.color = "#00ff00";
+                authStatus.textContent = "access granted";
+                authRedirectTimer = setTimeout(() => {
+                    authModal.classList.remove("visible");
+                    window.location.href = `${fileData.fileHash}.html`;
+                }, 1000);
+            } else {
+                errorSound.currentTime = 0;
+                errorSound.play();
+                authStatus.style.color = "#ff0000";
+                authStatus.textContent = "access denied";
+            }
+        }
+
+        desktopIcons.forEach((icon) => {
+            wireOpenOnDoubleClick(icon, () => openFolder(icon.dataset.openFolder));
+            icon.addEventListener("mousedown", (e) => {
+                if (e.button !== 0) return;
+                e.stopPropagation();
+                selectIcon(icon, e.ctrlKey);
+                startIconDrag(e, icon);
+            });
+        });
+
+        desktop.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
+            startBoxSelection(e);
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            updateIconDrag(e);
+            updateBoxSelection(e);
+        });
+
+        document.addEventListener("mouseup", () => {
+            stopIconDrag();
+            stopBoxSelection();
+        });
+
+        initDesktopIcons();
+
+        closeWindow.addEventListener("click", () => fileWindow.classList.remove("visible"));
+
+        authOpen.addEventListener("click", openEncryptedFile);
+        authInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                openEncryptedFile();
+                return;
+            }
+            if (e.key === "Backspace") {
+                e.preventDefault();
+                authRawPassword = authRawPassword.slice(0, -1);
+                authInput.value = "*".repeat(authRawPassword.length);
+                playKey();
+                return;
+            }
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                authRawPassword += e.key;
+                authInput.value = "*".repeat(authRawPassword.length);
+                playKey();
+            }
+        });
+        authInput.addEventListener("paste", (e) => {
+            e.preventDefault();
+            const pasted = (e.clipboardData || window.clipboardData).getData("text") || "";
+            if (!pasted) return;
+            authRawPassword += pasted;
+            authInput.value = "*".repeat(authRawPassword.length);
+            playKey();
+        });
+        authCancel.addEventListener("click", () => {
+            authRawPassword = "";
+            authInput.value = "";
+            authModal.classList.remove("visible");
+        });
+
+        startBtn.addEventListener("click", () => {
+            startMenu.classList.toggle("open");
+        });
+
+        rebootBtn.addEventListener("click", () => {
+            closeStartMenu();
+            setTimeout(() => location.reload(), 220);
+        });
+
+        shutdownBtn.addEventListener("click", () => {
+            closeStartMenu();
+            turnoffSound.currentTime = 0;
+            turnoffSound.play();
+            setTimeout(() => {
+                poweroff.classList.add("on");
+                desktop.style.display = "none";
+                fileWindow.classList.remove("visible");
+                authModal.classList.remove("visible");
+            }, 140);
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!startMenu.contains(e.target) && e.target !== startBtn && !startBtn.contains(e.target)) {
+                closeStartMenu();
+            }
+        });
+    </script>
+</body>
+</html>
