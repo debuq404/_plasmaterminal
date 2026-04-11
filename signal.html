@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Signal Receiver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #000b00;
+            --fg: #00ff00;
+            --line: rgba(0, 255, 0, 0.7);
+            --shadow: rgba(0, 255, 0, 0.45);
+        }
+        
+        * { transition: none !important; animation: none !important; }
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: var(--bg); color: var(--fg);
+            font-family: 'VT323', monospace; overflow: hidden;
+        }
+
+        body::before {
+            content: " "; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+            background: linear-gradient(rgba(18, 16, 16, 0) 40%, rgba(0, 0, 0, 0.26) 50%),
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.015), rgba(0, 0, 255, 0.02));
+            background-size: 100% 4px, 6px 100%;
+        }
+        body::after {
+            content: " "; position: fixed; inset: 0; pointer-events: none; z-index: 101;
+            background: radial-gradient(ellipse at center, rgba(0,255,0,0.05) 0%, rgba(0,255,0,0) 46%),
+                        radial-gradient(circle, rgba(0,0,0,0) 58%, rgba(0,0,0,0.62) 100%);
+        }
+
+        .wallpaper {
+            position: fixed; inset: 0; z-index: 1; pointer-events: none;
+            background: repeating-linear-gradient(90deg, rgba(0,255,0,0.035), rgba(0,255,0,0.035) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 64px);
+        }
+
+        .app-window {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 800px; height: 500px; z-index: 10;
+            background: rgba(0, 12, 0, 0.90);
+            border: 1px solid var(--fg);
+            box-shadow: 0 0 26px var(--shadow);
+            display: flex; flex-direction: column; border-radius: 8px; overflow: hidden;
+        }
+
+        .window-title {
+            background: var(--fg); color: var(--bg); padding: 5px 10px;
+            font-family: 'Press Start 2P'; font-size: 10px; display: flex; justify-content: space-between;
+        }
+
+        .btn-close { cursor: pointer; }
+        .btn-close:hover { color: #fff; }
+
+        .window-content { display: grid; grid-template-columns: 1fr 280px; flex: 1; padding: 15px; gap: 15px; }
+
+        .viz-box {
+            border: 1px solid var(--fg); background: rgba(0,5,0,0.5);
+            display: flex; align-items: flex-end; justify-content: space-around; padding: 10px; height: 100%;
+        }
+        .bar { width: 8px; background: var(--fg); box-shadow: 0 0 5px var(--fg); min-height: 2px; }
+
+        .side-panel { display: flex; flex-direction: column; gap: 20px; }
+        .status-box { border: 1px solid var(--fg); padding: 10px; font-size: 18px; min-height: 40px; }
+
+        .slider-wrap { position: relative; width: 100%; padding-top: 30px; margin-bottom: 10px; }
+        
+        .value-hint {
+            position: absolute; top: 0; transform: translateX(-50%);
+            font-family: 'Press Start 2P'; font-size: 10px; color: #0ff;
+            opacity: 0; pointer-events: none; z-index: 10;
+        }
+        .slider-wrap:active .value-hint, .slider-wrap:hover .value-hint { opacity: 1; }
+
+        .slider-bg-ticks {
+            position: absolute; top: 35px; left: 0; width: 100%; height: 12px;
+            display: flex; justify-content: space-between; pointer-events: none;
+        }
+        .tick { width: 1px; height: 100%; background: rgba(0, 255, 0, 0.4); }
+
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer;
+            position: relative; z-index: 5;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; background: var(--fg); box-shadow: 0 0 5px var(--fg);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 10px; 
+            background: #000; border: 2px solid var(--fg); margin-top: -8px;
+            box-shadow: 0 0 8px var(--fg);
+        }
+
+        .btn-action {
+            background: rgba(0,255,0,0.1); border: 1px solid var(--fg); color: var(--fg);
+            font-family: 'Press Start 2P'; font-size: 12px; padding: 15px; cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-action:hover { background: var(--fg); color: var(--bg); }
+
+        #boot {
+            position: fixed; inset: 0; background: #000; z-index: 1000;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-family: 'Press Start 2P'; color: var(--fg); text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="boot">CLICK TO INITIALIZE AUDIO</div>
+    <div class="wallpaper"></div>
+
+    <div class="app-window">
+        <div class="window-title">
+            <span>SIGNAL_RECEIVER_V1</span>
+            <span class="btn-close" onclick="window.location.href='index.html'">X</span>
+        </div>
+        <div class="window-content">
+            <div class="viz-box" id="viz"></div>
+            
+            <div class="side-panel">
+                <div class="status-box">
+                    <div style="font-size: 18px; margin-bottom: 8px;">STATUS: <span id="status" style="color:#0ff">IDLE</span></div>
+                    <div style="font-size: 12px; color: var(--line);">FREQ: <span id="statFreq">000.000</span> MHz</div>
+                    <div style="font-size: 12px; color: var(--line);">SNR: <span id="statSnr">-00</span> dB</div>
+                </div>
+
+                <div class="slider-wrap">
+                    <div id="hintA" class="value-hint">0</div>
+                    <div class="slider-bg-ticks">
+                        <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+                    </div>
+                    <input type="range" id="rangeA" min="0" max="100" value="0">
+                    <div style="margin-top:5px; font-size: 14px;">TUNE FREQUENCY A</div>
+                </div>
+
+                <div class="slider-wrap">
+                    <div id="hintB" class="value-hint">0</div>
+                    <div class="slider-bg-ticks">
+                        <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+                    </div>
+                    <input type="range" id="rangeB" min="0" max="100" value="0">
+                    <div style="margin-top:5px; font-size: 14px;">TUNE FREQUENCY B</div>
+                </div>
+
+                <button class="btn-action" id="listenBtn">LISTEN</button>
+
+                <div style="font-size: 10px; color: var(--line); text-align: center; margin-top: auto; padding-top: 10px;">
+                    plasmadesk v6.93 // 16-bit<br>© localfeatures
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sndClick = new Audio("click.mp3");
+        
+        const player = new Audio();
+        player.loop = true;
+
+        const noiseBg = new Audio('noise.mp3');
+        noiseBg.loop = true;
+        noiseBg.volume = 0.14;
+
+        /** Громкость noise.mp3 под радио-треки (radio*.ogg); sector — без шума. */
+        const NOISE_VOL_NO_SIGNAL = 0.2;
+        const NOISE_VOL_UNDER_RADIO = 0.32;
+
+        const files = {
+            noise: 'noise.mp3',
+            sector: 'sector.wav',
+            radio: 'radio.ogg',
+            radio2: 'radio2.ogg',
+            radio3: 'radio3.ogg',
+            radio4: 'radio4.ogg',
+            radio_693: 'radio_693.ogg'
+        };
+
+        function setupSlider(id, hintId) {
+            const slider = document.getElementById(id);
+            const hint = document.getElementById(hintId);
+            const update = () => {
+                hint.textContent = slider.value;
+                const percent = (slider.value - slider.min) / (slider.max - slider.min);
+                hint.style.left = `calc(${percent * 100}%)`;
+            };
+            slider.addEventListener('input', update);
+            update();
+        }
+
+        // Сброс при загрузке
+        document.getElementById('rangeA').value = 0;
+        document.getElementById('rangeB').value = 0;
+        setupSlider('rangeA', 'hintA');
+        setupSlider('rangeB', 'hintB');
+
+        const viz = document.getElementById('viz');
+        const bars = [];
+        for(let i=0; i<35; i++) {
+            const b = document.createElement('div');
+            b.className = 'bar'; viz.appendChild(b); bars.push(b);
+        }
+
+        function draw() {
+            requestAnimationFrame(draw);
+            // Визуализация работает, если что-то играет
+            const isPlaying = (!player.paused) || (!noiseBg.paused);
+            
+            if (isPlaying) {
+                document.getElementById('statFreq').textContent = (142 + Math.random() * 0.005).toFixed(3);
+                document.getElementById('statSnr').textContent = Math.floor(Math.random() * 5 - 15);
+            } else {
+                document.getElementById('statFreq').textContent = "000.000";
+                document.getElementById('statSnr').textContent = "-00";
+            }
+
+            for (let i = 0; i < bars.length; i++) {
+                if (isPlaying) {
+                    let height = Math.random() * (i < 10 ? 85 : i < 25 ? 65 : 45) + 5;
+                    bars[i].style.height = height + '%';
+                } else {
+                    bars[i].style.height = '2px';
+                }
+            }
+        }
+
+        // ИНИЦИАЛИЗАЦИЯ (Важно для GitHub/Браузеров)
+        document.getElementById('boot').onclick = function() {
+            this.style.display = 'none';
+            player.src = files.noise;
+            player.volume = 1;
+            player.load();
+            player.play().catch(() => {});
+            noiseBg.volume = NOISE_VOL_NO_SIGNAL;
+            noiseBg.load();
+            noiseBg.play().catch(() => {});
+            draw();
+        };
+
+        document.getElementById('listenBtn').onclick = function() {
+            const listenBtn = this;
+            sndClick.currentTime = 0;
+            sndClick.play();
+            const status = document.getElementById('status');
+            listenBtn.disabled = true;
+            status.textContent = "SEARCHING...";
+            
+            player.pause();
+            noiseBg.pause();
+
+            setTimeout(() => {
+                const a = parseInt(document.getElementById('rangeA').value);
+                const b = parseInt(document.getElementById('rangeB').value);
+                
+                let current = files.noise;
+
+                if (a >= 70 && a <= 80 && b >= 35 && b <= 45) {
+                    current = files.sector;
+                } else if (a === 69 && b === 3) {
+                    current = files.radio_693;
+                } else if (a >= 5 && a <= 15 && b >= 85 && b <= 95) {
+                    current = files.radio;
+                } else if (a >= 35 && a <= 45 && b >= 5 && b <= 15) {
+                    current = files.radio2;
+                } else if (a >= 85 && a <= 95 && b >= 55 && b <= 65) {
+                    current = files.radio3;
+                } else if (a >= 20 && a <= 30 && b >= 45 && b <= 55) {
+                    current = files.radio4;
+                }
+
+                /** Только sector — чистый сигнал; радио (включая radio_693) с заметным шумом. */
+                const sectorOnly = current === files.sector;
+
+                player.src = current;
+                const isNoSignal = current === files.noise;
+                player.volume = sectorOnly || isNoSignal ? 1 : 0.92;
+                player.play().catch(() => {});
+
+                if (sectorOnly) {
+                    noiseBg.pause();
+                    noiseBg.currentTime = 0;
+                } else {
+                    noiseBg.volume = isNoSignal ? NOISE_VOL_NO_SIGNAL : NOISE_VOL_UNDER_RADIO;
+                    noiseBg.play().catch(() => {});
+                }
+
+                status.textContent = current === files.noise ? "NO SIGNAL" : "LOCKED";
+                status.style.color = current === files.noise ? "#f00" : "#0f0";
+                listenBtn.disabled = false;
+            }, 2500);
+        };
+
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.id !== 'boot') {
+                sndClick.currentTime = 0; sndClick.play();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.code === 'KeyX') window.location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>
